@@ -34,7 +34,7 @@ jobs:
       uses: docker/build-push-action@v6 # v5에서 v6로 버전을 갱신하여 Node.js 24 에러 예방
       with:
         context: ./ros2_ws
-        file: Dockerfile
+        file: ./ros2_ws/Dockerfile
         tags: smart-factory-ci-agent:latest
         push: false  
         cache-from: type=local,src=/tmp/.build-cache
