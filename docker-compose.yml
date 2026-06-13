@@ -1,0 +1,88 @@
+version: '3.8'
+
+networks:
+  it_lan_net:       # Layer 4 비즈니스/트랜잭션 평면 전용 내부 격리 네트워크
+    driver: bridge
+    internal: true  # 외부 인터넷망 및 외부 호스트와의 직접 direct TCP 접속 전면 차단
+  ot_field_net:    # Layer 0-2 물리 제어 및 시뮬레이션 평면 전용 네트워크
+    driver: bridge
+
+services:
+  # ---------------------------------------------------------------------------
+  # [IT 평면] 데이터베이스 이원화 스택
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: sf_postgres_db
+    environment:
+      POSTGRES_USER: carbon_admin
+      POSTGRES_PASSWORD: secure_password_1234
+      POSTGRES_DB: carbon_db
+    volumes:
+      - ./volumes/postgres_data:/var/lib/postgresql/data
+    networks:
+      - it_lan_net
+    # ports 섹션을 완전히 제거하고 expose만 선언하여 호스트(외부) 포트 오픈을 불허함
+    expose:
+      - "5432"
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: sf_influx_tsdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./volumes/influxdb_data:/var/lib/influxdb2
+    networks:
+      - it_lan_net
+      - ot_field_net
+
+  # ---------------------------------------------------------------------------
+  # [IT 평면] 비즈니스 트랜잭션 게이트웨이 (FastAPI)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sf_fastapi_gateway
+    ports:
+      - "8000:8000"  # 외부 Next.js 대시보드와의 통신 웹 세션 허용
+    environment:
+      - DATABASE_URL=postgresql://carbon_admin:secure_password_1234@postgres:5432/carbon_db
+      - INFLUXDB_URL=http://influxdb:8086
+    depends_on:
+      - postgres
+    networks:
+      - it_lan_net
+      - ot_field_net
+
+  # ---------------------------------------------------------------------------
+  # [OT 평면] ROS2 Humble + Gazebo 시뮬레이션 컨테이너
+  # ---------------------------------------------------------------------------
+  ros2_simulation:
+    build:
+      context: .
+      dockerfile: ./ros2_ws/Dockerfile
+    container_name: sf_ros2_humble_workspace
+    privileged: true  # 하드웨어 장치 다이렉트 엑세스 권한 인가
+    network_mode: "host" # ROS2 노드 간 멀티캐스트 통신 및 고주파 DDS 통신 마진 확보를 위해 호스트 네트워크 공유
+    environment:
+      - DISPLAY=${DISPLAY}             # 호스트 X11 디스플레이 포워딩 연동
+      - QT_X11_NO_MITSHM=1             # 가상 GUI 드로잉 메모리 쉐어링 오류 방지
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false # [PM 리스크 노트 반영] JAX VRAM 선점 방지
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # X11 그래픽 소켓 마운트
+      - ./ros2_ws/src:/workspace/ros2_ws/src # 실시간 소스 코드 동기화 (핫 리로드 개발)
+    runtime: nvidia # 컨테이너 내부 3D Gazebo 인스턴스에 NVIDIA GPU 하드웨어 가속 강제 바인딩
+
+  # ---------------------------------------------------------------------------
+  # [OT 평면] 가상 Soft-PLC 환경 (OpenPLC)
+  # ---------------------------------------------------------------------------
+  openplc:
+    image: alpine:latest # 실제 구현 시 OpenPLC 패키징 반영
+    container_name: sf_openplc_runtime
+    ports:
+      - "502:502"   # Modbus TCP 포트 바인딩
+      - "4840:4840" # OPC UA 서버 포트 바인딩
+    networks:
+      - ot_field_net
