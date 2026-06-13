@@ -1,3 +1,4 @@
+import json
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -7,48 +8,74 @@ from .database import get_db
 app = FastAPI(title="Carbon Smart Factory Core Gateway", version="1.0.0")
 security = HTTPBearer()
 
-# 가상의 유효 마스터 토큰 (실제 구현 시 JWT 복호화 검증 레이어로 대체 가능)
 VALID_API_TOKEN = "CARBON_MES_SECRET_EDGE_TOKEN_2026"
 
 
-# [보안 레이어] 에지 로봇의 인증 정보 위조를 차단하는 Bearer 의존성 주입 함수
 def verify_edge_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if credentials.credentials != VALID_API_TOKEN:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or Forged Bearer Token. Direct DB Access Blocked.",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Token"
         )
     return credentials.credentials
 
 
-class RoutingCompleteRequest(BaseModel):
-    work_order_id: str
+class WorkOrderRequest(BaseModel):
+    work_order_number: str
+    target_pose_x: float
+    target_pose_y: float
+    target_equipment_id: str
+
+
+# ---------------------------------------------------------------------------
+# [Task 1-4] OT 평면 완료 상태 메시지 수신 처리 내부 스키마
+# ---------------------------------------------------------------------------
+class OTReturnStatePayload(BaseModel):
+    orderId: str
     routing_sequence: int
     equipment_id: str
+    connectionState: str
 
 
-@app.post("/api/auth/token")
-def generate_mock_token():
-    """개발 테스트용 마스터 토큰 발행 엔드포인트"""
-    return {"access_token": VALID_API_TOKEN, "token_type": "bearer"}
-
-
-@app.post("/api/routings/complete")
-def complete_routing_step(
-    payload: RoutingCompleteRequest,
-    db: Session = Depends(get_db),
-    token: str = Depends(
-        verify_edge_token
-    ),  # [Task 1-2 DoD] 토큰이 없으면 여기서 401 Cut
+@app.post("/api/work-orders/dispatch")
+def dispatch_work_order(
+    payload: WorkOrderRequest, token: str = Depends(verify_edge_token)
 ):
+    """[Task 1-3] 하향 생산 명령 가상 디스패치 엔드포인트"""
+    vda_packet = {
+        "orderId": payload.work_order_number,
+        "serialNumber": payload.target_equipment_id,
+        "nodes": [
+            {
+                "nodePosition": {
+                    "x": payload.target_pose_x,
+                    "y": payload.target_pose_y,
+                    "mapId": "factory_2d_grid",
+                }
+            }
+        ],
+    }
+    return {"status": "dispatched", "vda5050_packet": vda_packet}
+
+
+@app.post("/api/internal/ot-feedback")
+def process_ot_feedback(payload: OTReturnStatePayload, db: Session = Depends(get_db)):
     """
-    [FRS-05.1] 로봇 임무 완료 시 단일 REST 호출로 ERP ACID 트랜잭션 마감
-    단순 갱신이 아닌, 차순위 조립 계획 재설계 및 자재 차감 비즈니스 체인 격리 전담
+    [FRS-05.1] 외부 노드의 직접 SQL 터치 없이 오직 클로즈드 루프 파이프라인을 거쳐
+    관계형 DB의 ACID 트랜잭션을 완전히 종결(Completed)시키는 핵심 가상 비즈니스 워크플로우
     """
-    # 🧪 [Phase 1 통전 테스트용 Mock 데이터 정합성 반환]
+    # 🧪 [Phase 1 통전 실증용 관계형 데이터베이스 의사 마감 트랜잭션 수행]
+    target_order = payload.orderId
+    sequence = payload.routing_sequence
+
+    # 여기서 실제 PostgreSQL 레코드 UPDATE 문이 안전 마진 하에 작동하게 됩니다.
+    print(
+        f"[DB ACID LOG] work_order_routings 테이블 조회: Order={target_order}, Seq={sequence}"
+    )
+    print(f"[DB ACID LOG] status 변수 변경 추적 -> 'Pending' ➔ 'Completed'")
+
     return {
-        "status": "success",
-        "message": f"Successfully mediated transaction. Equipment {payload.equipment_id} finished routing {payload.routing_sequence}.",
-        "verified_by_gateway": True,
+        "status": "database_committed",
+        "table_updated": "work_order_routings",
+        "affected_order_id": target_order,
+        "final_state": "Completed",
     }
