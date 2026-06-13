@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
+# Node.js 24 환경을 강제로 선점하기 위한 전역 환경 변수 인가 (2026년 규격 반영)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   ros2-colcon-build-verification:
     runs-on: ubuntu-22.04  # 기범 님의 호스트 환경과 완전 매핑되는 최적의 러너 스펙
@@ -18,7 +22,7 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: 3. 효율적 컴파일을 위한 Docker 레이어 캐시 활성화
-      uses: actions/cache@v3
+      uses: actions/cache@v4 # v3에서 v4로 버전을 갱신하여 Node.js 24 에러 예방
       with:
         path: /tmp/.build-cache
         key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -26,17 +30,16 @@ jobs:
           ${{ runner.os }}-buildx-
 
     - name: 4. ROS2 Humble 환경 격리 컨테이너 빌드 가동
-      # ROS2 Dockerfile의 colcon build 레이어까지 실행하여 빌드 오류를 가로챔
-      uses: docker/build-push-action@v5
+      # 빌드 컨텍스트 자체를 ros2_ws로 좁혀서 Dockerfile 내부의 COPY 정합성 확보
+      uses: docker/build-push-action@v6 # v5에서 v6로 버전을 갱신하여 Node.js 24 에러 예방
       with:
-        context: .
+        context: ./ros2_ws
         file: ./ros2_ws/Dockerfile
         tags: smart-factory-ci-agent:latest
-        push: false  # 로컬 러너 내부 검증용이므로 외부 레지스트리에 푸시하지 않음
+        push: false  
         cache-from: type=local,src=/tmp/.build-cache
         cache-to: type=local,dest=/tmp/.build-cache-new,mode=max
 
-    # 캐시 비대화 방지를 위한 정리 레이어
     - name: 5. 도커 빌드 캐시 갱신 정합
       run: |
         rm -rf /tmp/.build-cache
