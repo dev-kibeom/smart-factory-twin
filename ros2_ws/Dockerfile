@@ -30,7 +30,9 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 # 빌드 컨텍스트 루트(.) 구조에 맞게 복사 경로 패싱 정합
 # ---------------------------------------------------------------------------
 WORKDIR /workspace/ros2_ws
-COPY ./ros2_ws/src ./src
+
+# 컨텍스트 루트(.) 기준으로 명확하게 'ros2_ws/src' 전체를 컨테이너 내부 './src' 폴더로 복사합니다.
+COPY ros2_ws/src ./src
 
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install"
 
