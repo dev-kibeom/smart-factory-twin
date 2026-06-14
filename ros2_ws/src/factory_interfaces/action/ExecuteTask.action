@@ -1,0 +1,14 @@
+# [factory_interfaces] 비헤이비어 트리 탑재형 대형 분산 임무 실행 제어 액션 명세 [cite: 71, 74]
+string work_order_id      # Carbon MES 연계 글로벌 작업 지시 번호 [cite: 258]
+string operation_name     # 수행할 공정 오퍼레이션 명칭 (AMR_Fetch / OpenPLC_Assemble) [cite: 185]
+string target_pose_id     # 주행 가이드용 목적지 노드 ID [cite: 284]
+---
+# Result 명세 (최종 임무 마감 피드백)
+bool task_completed       # 공정 시퀀스 최종 성공 여부 [cite: 36]
+int32 terminal_fault_code # 최종 임무 실패 시 상향 전파할 고장 유형 코드 [cite: 112]
+builtin_interfaces/Duration time_elapsed # 실제 공정 임무 수행 총 소요 시간 (OEE 연산용) [cite: 120]
+---
+# Feedback 명세 (매 틱 단위 실시간 상태 전송)
+string current_sub_task   # 현재 수행 중인 세부 액션 (ComputingPath / Following) [cite: 224]
+float32 progress_rate     # 목표 타깃 지점 격자망 남은 거리 비율 (0.0 ~ 100.0%)
+bool is_recovery_active   # Local_Recovery_Behaviors 가동 중 여부 [cite: 111]

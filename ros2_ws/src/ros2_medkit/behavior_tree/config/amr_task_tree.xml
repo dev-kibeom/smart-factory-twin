@@ -1,0 +1,35 @@
+<root BTCPP_format="4">
+    <BehaviorTree ID="Autonomous_AMR_Task_Manager">
+        <ReactiveFallback name="Safety_And_Task_Selector">
+            <Sequence name="Battery_Check_And_Charge">
+                <Condition ID="IsBatteryLow" threshold="20.0"/>
+                <Action ID="HaltCurrentTask" target="Carbon_MES"/>
+                <Action ID="ComputePathToPose" goal="Charging_Station"/>
+                <Action ID="FollowPath"/>
+            </Sequence>
+            <PipelineSequence name="Main_Production_Sequence">
+                <Action ID="FetchCarbonWorkOrder" output_key="target_pose"/>
+                <RecoveryNode number_of_retries="3" name="Navigation_With_Fallback">
+                    <Sequence name="Navigate_To_Station">
+                        <Action ID="ComputePathToPose" goal="{target_pose}"/>
+                        <Action ID="FollowPath"/>
+                    </Sequence>
+                    <Sequence name="Local_Recovery_Behaviors">
+                        <Action ID="ClearCostmaps"/>
+                        <Action ID="Spin" spin_dist="1.57"/>
+                        <Action ID="Wait" wait_duration="2.0"/>
+                    </Sequence>
+                </RecoveryNode>
+                <Sequence name="OPC_UA_Loading_Handshake">
+                    <Action ID="WriteOpcUaCoil" node_id="ns=2;s=AMR_Arrived" value="true"/>
+                    <Timeout msec="15000">
+                        <RetryUntilSuccessful num_attempts="5">
+                            <Condition ID="ReadOpcUaInput" node_id="ns=2;s=PLC_Loading_Done"/>
+                        </RetryUntilSuccessful>
+                    </Timeout>
+                    <Action ID="WriteOpcUaCoil" node_id="ns=2;s=AMR_Arrived" value="false"/>
+                </Sequence>
+            </PipelineSequence>
+        </ReactiveFallback>
+    </BehaviorTree>
+</root>
