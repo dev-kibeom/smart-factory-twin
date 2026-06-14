@@ -61,22 +61,29 @@ services:
   # ---------------------------------------------------------------------------
   ros2_simulation:
     build:
-      context: .
+      context: .  
       dockerfile: ./ros2_ws/Dockerfile
     container_name: sf_ros2_humble_workspace
-    privileged: true  # 하드웨어 장치 다이렉트 엑세스 권한 인가
-    # 컨테이너가 대기 상태에서 종료되지 않고 표준 입출력을 유지하도록 인프라 바인딩
+    privileged: true
     tty: true
     stdin_open: true
-    network_mode: "host" # ROS2 노드 간 멀티캐스트 통신 및 고주파 DDS 통신 마진 확보를 위해 호스트 네트워크 공유
+    networks:
+      - ot_field_net
     environment:
-      - DISPLAY=${DISPLAY}             # 호스트 X11 디스플레이 포워딩 연동
-      - QT_X11_NO_MITSHM=1             # 가상 GUI 드로잉 메모리 쉐어링 오류 방지
-      - XLA_PYTHON_CLIENT_PREALLOCATE=false # [PM 리스크 노트 반영] JAX VRAM 선점 방지
+      DISPLAY: ${DISPLAY}             
+      QT_X11_NO_MITSHM: "1"             
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"  
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # X11 그래픽 소켓 마운트
-      - ./ros2_ws/src:/workspace/ros2_ws/src # 실시간 소스 코드 동기화 (핫 리로드 개발)
-    runtime: nvidia # 컨테이너 내부 3D Gazebo 인스턴스에 NVIDIA GPU 하드웨어 가속 강제 바인딩
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  
+      - ./ros2_ws/src:/workspace/ros2_ws/src 
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility, compute]
 
   # ---------------------------------------------------------------------------
   # [OT 평면] 가상 Soft-PLC 환경 (OpenPLC)
