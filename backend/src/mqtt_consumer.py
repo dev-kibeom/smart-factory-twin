@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import json
 import logging
+from src.influx_client import stream_to_influxdb # ◀ 시계열 사출 엔진 수입
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -22,8 +23,17 @@ def on_message(client, userdata, msg):
         payload = json.loads(msg.payload.decode('utf-8'))
         LATEST_AMR_TELEMETRY.update(payload)
         logger.info(f"[IT 백엔드] 실시간 로봇 패킷 수입 전사 완정 -> {LATEST_AMR_TELEMETRY}")
+        
+        # [핵심 수행] MQTT 가교로 밀려든 패킷을 가로채서 InfluxDB 시계열 버킷으로 직격 사출!
+        stream_to_influxdb(
+            robot_id=LATEST_AMR_TELEMETRY["robot_id"],
+            inertia=LATEST_AMR_TELEMETRY["inertia"],
+            friction=LATEST_AMR_TELEMETRY["friction"],
+            torque_nm=LATEST_AMR_TELEMETRY["torque_nm"]
+        )
+        
     except Exception as e:
-        logger.error(f"[IT 백엔드] 패킷 역직렬화 실패: {str(e)}")
+        logger.error(f"[IT 백엔드] 패킷 역직렬화 및 TSDB 사출 실패: {str(e)}")
 
 def init_mqtt_consumer():
     broker_ip = "172.20.0.10"
