@@ -4,9 +4,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
+# NVIDIA 그래픽 가속 및 가상 디스플레이(X11) 구동 설정 (기범 님의 RTX GPU 자원 참조)
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute,video
 
+# [NVIDIA & Gazebo 정합] 누락되었던 gazebo_ros 및 내비게이션 맵 코어 라이브러리 일괄 적재
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash-completion \
     build-essential \
@@ -14,7 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3-pip \
     python3-colcon-common-extensions \
+    ros-humble-gazebo-ros-pkgs \
+    ros-humble-gazebo-ros \
     ros-humble-nav2-bringup \
+    ros-humble-nav2-map-server \
+    ros-humble-nav2-lifecycle-manager \
     ros-humble-rmw-cyclonedds-cpp \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
@@ -26,12 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
-# ---------------------------------------------------------------------------
-# 빌드 컨텍스트 루트(.) 구조에 맞게 복사 경로 패싱 정합
-# ---------------------------------------------------------------------------
 WORKDIR /workspace/ros2_ws
-
-# 컨텍스트 루트(.) 기준으로 명확하게 'ros2_ws/src' 전체를 컨테이너 내부 './src' 폴더로 복사합니다.
 COPY ros2_ws/src ./src
 
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install"
