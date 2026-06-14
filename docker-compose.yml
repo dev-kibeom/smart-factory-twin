@@ -3,9 +3,12 @@ version: '3.8'
 networks:
   it_lan_net:       # Layer 4 비즈니스/트랜잭션 평면 전용 내부 격리 네트워크
     driver: bridge
-    internal: true  # 외부 인터넷망 및 외부 호스트와의 직접 direct TCP 접속 전면 차단
   ot_field_net:    # Layer 0-2 물리 제어 및 시뮬레이션 평면 전용 네트워크
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
 
 services:
   # ---------------------------------------------------------------------------
@@ -55,6 +58,24 @@ services:
     networks:
       - it_lan_net
       - ot_field_net
+
+  # ---------------------------------------------------------------------------
+  # [OT/IT 경계 평면] 분산 이벤트 브로커 (Eclipse Mosquitto MQTT)
+  # ---------------------------------------------------------------------------
+  mqtt_broker:
+    image: eclipse-mosquitto:latest
+    container_name: sf_mqtt_broker
+    ports:
+      - "1883:1883"  
+    volumes:
+      - ./volumes/mqtt_config:/mosquitto/config
+      - ./volumes/mqtt_data:/mosquitto/data
+      - ./volumes/mqtt_log:/mosquitto/log
+    networks:
+      it_lan_net:      # IT 망은 도커가 알아서 유동 IP 부여
+      ot_field_net:    # [핵심 교정] ROS2와 통신할 OT 폐쇄망에는 고정 IP 주소를 강제 낙인
+        ipv4_address: 172.20.0.10
+    restart: always
 
   # ---------------------------------------------------------------------------
   # [OT 평면] ROS2 Humble + Gazebo 시뮬레이션 컨테이너
