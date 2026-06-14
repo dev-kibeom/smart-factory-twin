@@ -3,9 +3,12 @@ version: '3.8'
 networks:
   it_lan_net:       # Layer 4 비즈니스/트랜잭션 평면 전용 내부 격리 네트워크
     driver: bridge
-    internal: true  # 외부 인터넷망 및 외부 호스트와의 직접 direct TCP 접속 전면 차단
   ot_field_net:    # Layer 0-2 물리 제어 및 시뮬레이션 평면 전용 네트워크
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
 
 services:
   # ---------------------------------------------------------------------------
@@ -57,26 +60,51 @@ services:
       - ot_field_net
 
   # ---------------------------------------------------------------------------
+  # [OT/IT 경계 평면] 분산 이벤트 브로커 (Eclipse Mosquitto MQTT)
+  # ---------------------------------------------------------------------------
+  mqtt_broker:
+    image: eclipse-mosquitto:latest
+    container_name: sf_mqtt_broker
+    ports:
+      - "1883:1883"  
+    volumes:
+      - ./volumes/mqtt_config:/mosquitto/config
+      - ./volumes/mqtt_data:/mosquitto/data
+      - ./volumes/mqtt_log:/mosquitto/log
+    networks:
+      it_lan_net:      # IT 망은 도커가 알아서 유동 IP 부여
+      ot_field_net:    # [핵심 교정] ROS2와 통신할 OT 폐쇄망에는 고정 IP 주소를 강제 낙인
+        ipv4_address: 172.20.0.10
+    restart: always
+
+  # ---------------------------------------------------------------------------
   # [OT 평면] ROS2 Humble + Gazebo 시뮬레이션 컨테이너
   # ---------------------------------------------------------------------------
   ros2_simulation:
     build:
-      context: .
+      context: .  
       dockerfile: ./ros2_ws/Dockerfile
     container_name: sf_ros2_humble_workspace
-    privileged: true  # 하드웨어 장치 다이렉트 엑세스 권한 인가
-    # 컨테이너가 대기 상태에서 종료되지 않고 표준 입출력을 유지하도록 인프라 바인딩
+    privileged: true
     tty: true
     stdin_open: true
-    network_mode: "host" # ROS2 노드 간 멀티캐스트 통신 및 고주파 DDS 통신 마진 확보를 위해 호스트 네트워크 공유
+    networks:
+      - ot_field_net
     environment:
-      - DISPLAY=${DISPLAY}             # 호스트 X11 디스플레이 포워딩 연동
-      - QT_X11_NO_MITSHM=1             # 가상 GUI 드로잉 메모리 쉐어링 오류 방지
-      - XLA_PYTHON_CLIENT_PREALLOCATE=false # [PM 리스크 노트 반영] JAX VRAM 선점 방지
+      DISPLAY: ${DISPLAY}             
+      QT_X11_NO_MITSHM: "1"             
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"  
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # X11 그래픽 소켓 마운트
-      - ./ros2_ws/src:/workspace/ros2_ws/src # 실시간 소스 코드 동기화 (핫 리로드 개발)
-    runtime: nvidia # 컨테이너 내부 3D Gazebo 인스턴스에 NVIDIA GPU 하드웨어 가속 강제 바인딩
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  
+      - ./ros2_ws/src:/workspace/ros2_ws/src 
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility, compute]
 
   # ---------------------------------------------------------------------------
   # [OT 평면] 가상 Soft-PLC 환경 (OpenPLC)
