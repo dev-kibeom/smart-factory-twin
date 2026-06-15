@@ -1,0 +1,15 @@
+# Docker Volumes Data (🚨 필수 차단)
+volumes/postgres_data/
+volumes/mqtt_data/
+volumes/influxdb_data/
+*.bolt
+
+# ROS 2 Build Artifacts (🚨 필수 차단)
+ros2_ws/src/build/
+ros2_ws/src/install/
+ros2_ws/src/log/
+# Global ROS 2 and Local Build Artifacts
+build/
+install/
+log/
+**/__pycache__/
