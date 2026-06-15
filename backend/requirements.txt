@@ -6,3 +6,6 @@ psycopg2-binary==2.9.9
 gmqtt==0.6.12
 paho-mqtt
 influxdb-client
+PyJWT==2.10.1
+cryptography==42.0.5
+requests==2.31.0
