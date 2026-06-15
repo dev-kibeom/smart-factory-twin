@@ -1,25 +1,20 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 환경 변수로부터 격리된 VLAN 내 PostgreSQL 주소 수수
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://carbon_admin:secure_password_1234@postgres:5432/carbon_db",
-)
+# [정격 교정] docker-compose.yml 명세와 100% 일치하는 프로덕션 연결 사양 인가
+# 유저: carbon_admin / 암호: secure_password_1234 / 호스트: postgres (서비스 네임) / DB명: carbon_db
+DATABASE_URL = "postgresql://carbon_admin:secure_password_1234@postgres:5432/carbon_db"
 
-# [FRS-08.1] 커넥션 풀 고갈 및 부하 마진 제어를 위한 QueuePool 엔진 튜닝
 engine = create_engine(
     DATABASE_URL,
-    pool_size=20,  # 기본 유지 커넥션 수 수식 제한
-    max_overflow=10,  # 트래픽 병목 시 순간 확장 임계치
-    pool_timeout=30,  # 데드락 방지용 타임아웃(초)
-    pool_pre_ping=True,  # Liveliness 자동 유실 검사 활성화
+    pool_pre_ping=True,  # 런타임 연결 가용성 상시 체크 옵션
+    pool_size=10,
+    max_overflow=20
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
 
 def get_db():
     db = SessionLocal()
