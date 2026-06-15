@@ -1,0 +1,9 @@
+# [factory_interfaces] 의도적 결함 모델 프로그래머틱 인가 서비스 규격 [cite: 102]
+string component_id       # 고장 주입 대상 장치 식별자 (예: lidar_01, motor_left)
+int32 fault_code          # 고장 코드 식별자 (401: Lidar Blind, 501: Stuck-off) [cite: 106, 246]
+float64 noise_bias        # Sensing Drift 주입 시 인가할 가우시안 오차 스케일 상수 [cite: 249]
+builtin_interfaces/Duration duration_limit # 결함 인가 지속 시간 (0초 선언 시 무한 지속)
+---
+bool is_success           # 고장 주입 레이어 안착 성공 여부
+string error_message      # 주입 실패 시 원인 커널 로그 문구
+builtin_interfaces/Time timestamp # 고장 인가 시점의 물리 시뮬레이터 런타임 클록
