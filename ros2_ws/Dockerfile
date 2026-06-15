@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-nav2-map-server \
     ros-humble-nav2-lifecycle-manager \
     ros-humble-rmw-cyclonedds-cpp \
+    ros-humble-behaviortree-cpp \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-good \
@@ -40,16 +41,16 @@ RUN pip3 install --no-cache-dir --upgrade pip && \
     numpy && \
     pip3 install --no-cache-dir \
     jax[cuda12] \
-    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    paho-mqtt
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 WORKDIR /workspace/ros2_ws
-COPY ros2_ws/src ./src
+# COPY ros2_ws/src ./src
 
-RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install"
-
+# 4. 엔트리포인트 오버레이 소스 자동 등록 체계 안착
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
-    echo "source /workspace/ros2_ws/install/setup.bash" >> ~/.bashrc
+    echo "if [ -f /workspace/ros2_ws/install/setup.bash ]; then source /workspace/ros2_ws/install/setup.bash; fi" >> ~/.bashrc
 
-ENTRYPOINT ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && source install/setup.bash && exec bash"]
+CMD ["/bin/bash"]
