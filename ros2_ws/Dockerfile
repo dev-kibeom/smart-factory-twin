@@ -17,6 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-setuptools \
     python3-colcon-common-extensions \
+    python3-gi \
+    python3-gi-cairo \
+    python3-psutil \
     ros-humble-gazebo-ros-pkgs \
     ros-humble-gazebo-ros \
     ros-humble-nav2-bringup \
@@ -26,10 +29,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-behaviortree-cpp \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
+    gir1.2-gst-plugins-bad-1.0 \
+    gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad \
+    gstreamer1.0-nice \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav \
+    gstreamer1.0-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. [FRS-12.1] CPU 백래시(Falling back to cpu)를 완벽히 차단하는 정식 CUDA 가속 휠 세트 이식
@@ -42,7 +51,8 @@ RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir \
     jax[cuda12] \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
-    paho-mqtt
+    paho-mqtt \
+    websocket-client
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 

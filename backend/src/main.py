@@ -22,6 +22,7 @@ import src.models.core_assets
 import src.models.factory_operations
 from src.models import RobotMaster, WorkOrder, WorkOrderRouting
 from src.mqtt_consumer import init_mqtt_consumer
+from src.api.v1.signaling import router as signaling_router
 
 
 # ===========================================================================
@@ -115,6 +116,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(signaling_router)
 
 # ---------------------------------------------------------------------------
 # [보안 레이어] JWT Bearer Token 검증 및 발급엔진
