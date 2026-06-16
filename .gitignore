@@ -1,15 +1,40 @@
-# Docker Volumes Data (🚨 필수 차단)
+# ==========================================
+# Docker Volumes Data
+# ==========================================
 volumes/postgres_data/
 volumes/mqtt_data/
 volumes/influxdb_data/
 *.bolt
 
-# ROS 2 Build Artifacts (🚨 필수 차단)
-ros2_ws/src/build/
-ros2_ws/src/install/
-ros2_ws/src/log/
-# Global ROS 2 and Local Build Artifacts
+# ==========================================
+# Frontend (Next.js 14 & Node.js) Defenses
+# ==========================================
+**/node_modules/
+**/dist/
+**/.next/
+**/out/
+**/.pnpm-debug.log
+
+# Frontend Environment Variables
+.env*.local
+
+# Editor & System Files
+.eslintcache
+.stylelintcache
+
+# ==========================================
+# ROS2 Build Artifacts
+# ==========================================
 build/
 install/
 log/
+
+ros2_ws/src/build/
+ros2_ws/src/install/
+ros2_ws/src/log/
+
+# ==========================================
+# Python Extra Defenses
+# ==========================================
 **/__pycache__/
+**/.pytest_cache/
