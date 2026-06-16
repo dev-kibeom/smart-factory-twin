@@ -36,6 +36,13 @@ services:
       - "8086:8086"
     volumes:
       - ./volumes/influxdb_data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=carbon_admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=secure_password_1234
+      - DOCKER_INFLUXDB_INIT_ORG=smart_factory_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=robot_telemetry_bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=super_secret_influxdb_token_12345
     networks:
       - it_lan_net
       - ot_field_net
@@ -53,6 +60,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://carbon_admin:secure_password_1234@postgres:5432/carbon_db
       - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=super_secret_influxdb_token_12345
+      - INFLUXDB_ORG=smart_factory_org
+      - INFLUXDB_BUCKET=robot_telemetry_bucket
     depends_on:
       - postgres
     networks:
