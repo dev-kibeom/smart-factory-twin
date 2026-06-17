@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+// frontend/src/hooks/useWebRtc.ts
+import { useEffect, useRef, useState } from 'react';
 
 interface UseWebRtcProps {
   signalingUrl: string;
@@ -20,6 +21,9 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 컴포넌트 라이프사이클 내에서 싱글톤을 안전하게 바인딩할 레퍼런스 가드 사수
+  const pcRef = useRef<RTCPeerConnection | null>(null);
 
   useEffect(() => {
     const pcConfig: RTCConfiguration = {
@@ -27,8 +31,9 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
       bundlePolicy: 'max-bundle',
     };
 
-    const initializePeerConnection = () => {
-      // 이미 글로벌 커넥션이 PLAYING 중이면 새로 만들지 않고 재사용 인터록
+    // 🔌 [정격 교정] TDZ 결함을 소거하기 위해 표준 함수 선언식(Function Statement) 사양으로 전면 개전
+    function initializePeerConnection() {
+      // 이미 글로벌 커넥션이 PLAYING 중이면 새로 만들지 않고 재사용 인터록 [cite: 644]
       if (globalPc) {
         pcRef.current = globalPc;
         return;
@@ -65,10 +70,11 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
       };
 
       globalPc = pc;
-    };
+      pcRef.current = pc;
+    }
 
-    const connectSignalingServer = () => {
-      // 이미 소켓 관문이 개통되어 생존해 있다면 중복 커넥션 생성 전면 차단
+    function connectSignalingServer() {
+      // 이미 소켓 관문이 개통되어 생존해 있다면 중복 커넥션 생성 전면 차단 [cite: 650]
       if (globalWs && (globalWs.readyState === WebSocket.OPEN || globalWs.readyState === WebSocket.CONNECTING)) {
         if (globalWs.readyState === WebSocket.OPEN) {
           setIsConnected(globalPc?.connectionState === 'connected');
@@ -77,7 +83,7 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
       }
 
       const ws = new WebSocket(`${signalingUrl}/${clientId}`);
-
+      
       ws.onopen = () => {
         console.log(`📡 [Next.js WebRTC] 싱글톤 소켓 관문 무결성 개통 완료.`);
         globalIceQueue = [];
@@ -106,12 +112,10 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
             ws.send(JSON.stringify({ target_id: targetId, type: 'answer', sdp: answer.sdp }));
           } else if (msg.type === 'candidate') {
             if (!globalPc) return;
-
             const candidateInit: RTCIceCandidateInit = {
               candidate: msg.candidate,
               sdpMLineIndex: msg.sdpMLineIndex,
             };
-
             if (!globalPc.remoteDescription) {
               globalIceQueue.push(candidateInit);
             } else {
@@ -130,14 +134,13 @@ export const useWebRtc = ({ signalingUrl, clientId, targetId }: UseWebRtcProps) 
       };
 
       globalWs = ws;
-    };
+    }
 
+    // 초기 실행 진입점 가동
     connectSignalingServer();
 
-    // 💡 [클린업 인터록 거세]: 컴포넌트 해제 시 소켓을 강제 차단하던 파괴 로직을 
-    // 전면 제거하여 F12 및 화면 레이아웃 변경 시에도 미디어가 끊기지 않고 연속 생존하게 만듭니다.
     return () => {
-      // 영구 생존 보존을 위해 물리 close 호출을 전면 락인(주석 처리 또는 제거)합니다.
+      // 컴포넌트 언마운트 시의 소켓 파괴 인터록을 거세하여 연속 재생 무결성 보존 [cite: 664]
     };
   }, [signalingUrl, clientId, targetId]);
 
