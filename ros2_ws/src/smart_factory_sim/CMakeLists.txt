@@ -16,7 +16,10 @@ find_package(geometry_msgs REQUIRED)
 find_package(factory_interfaces REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
 
-include_directories(include)
+include_directories(
+  include
+  /usr/include
+)
 
 # ---------------------------------------------------------------------------
 # [C++ 컴파일 엔진 1] Task 2-5: BehaviorTree.CPP v4 임무 조율 노드 빌드
@@ -34,10 +37,17 @@ ament_target_dependencies(bt_mission_coordinator
 # [C++ 컴파일 엔진 2] Task 2-4: OpenPLC 제어용 OPC UA 필드버스 브릿지 노드 빌드
 # ---------------------------------------------------------------------------
 add_executable(ros2_opc_ua_bridge_node src/ros2_opc_ua_bridge_node.cpp)
+
+# 🔌 [핫픽스 완정 수복] open62541 파편화를 지우고 ROS2 전용 패키지만 안전 수전
 ament_target_dependencies(ros2_opc_ua_bridge_node
   rclcpp
   std_msgs
   factory_interfaces
+)
+
+# 🔌 [링커 분리 인터록] 순수 일반 C++ 공유 라이브러리는 독자적인 링커 명세로 밀결착
+target_link_libraries(ros2_opc_ua_bridge_node
+  open62541
 )
 
 # ---------------------------------------------------------------------------

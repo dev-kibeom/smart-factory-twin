@@ -97,6 +97,10 @@ services:
     privileged: true
     tty: true
     stdin_open: true
+    depends_on:
+      - openplc # OpenPLC 가 가동된 후 ROS2 가 뜨도록 생명주기 제어
+    links:
+      - openplc:openplc # openplc 라는 호스트명 별칭을 네트워크 버스에 정격 등록
     networks:
       - ot_field_net
     environment:
@@ -126,10 +130,52 @@ services:
   # [OT 평면] 가상 Soft-PLC 환경 (OpenPLC)
   # ---------------------------------------------------------------------------
   openplc:
-    image: alpine:latest 
+    image: python:3.10-slim
     container_name: sf_openplc_runtime
     ports:
-      - "502:502"   
+      # - "502:502"   
       - "4840:4840" 
     networks:
       - ot_field_net
+    # 🔌 [인프라 핵심 수복] 백그라운드에 상주하며 ns=2;s=PLC_Loading_Done 노드를 에뮬레이션하는 인라인 스크립트 가동
+    entrypoint:
+      - "python3"
+      - "-c"
+      - |
+        import time
+        try:
+            import asyncua
+        except ImportError:
+            import os
+            os.system("pip install asyncua")
+        
+        from asyncua import Server
+        import asyncio
+
+        async def main():
+            server = Server()
+            await server.init()
+            server.set_endpoint("opc.tcp://0.0.0.0:4840/freeopcua/server/")
+            
+            # 주소 장부 네임스페이스 및 노드 락인 등록
+            idx = await server.register_namespace("http://openplc.project")
+            myobj = await server.nodes.objects.add_object(idx, "MyPLCVariables")
+            
+            # ROS2 브릿지 노드가 타격할 수수 레지스터 변수 사전 선언 생성
+            heartbeat = await myobj.add_variable(idx, "AMR_Heartbeat", 0)
+            arrived = await myobj.add_variable(idx, "AMR_Arrived", False)
+            loading_done = await myobj.add_variable(idx, "PLC_Loading_Done", True) # 테스트를 위해 일단 TRUE 수전 고정
+            
+            await arrived.set_writable()
+            await heartbeat.set_writable()
+            await loading_done.set_writable()
+            
+            print("🏭 [MOCK PLC] 4840 포트 상에서 가상 산업용 OPC UA 서버 가동 안착.")
+            await server.start()
+            try:
+                while True:
+                    await asyncio.sleep(1)
+            finally:
+                await server.stop()
+
+        asyncio.run(main())

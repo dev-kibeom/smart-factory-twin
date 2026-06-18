@@ -8,7 +8,7 @@ ENV LC_ALL=C.UTF-8
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute,video
 
-# 1. 필수 시스템 종속성 및 Gazebo / Nav2 컴포넌트 라이브러리 설치
+# 필수 시스템 종속성 및 Gazebo / Nav2 컴포넌트 라이브러리 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash-completion \
     build-essential \
@@ -40,6 +40,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-libav \
     gstreamer1.0-tools \
     && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --recursive https://github.com/open62541/open62541.git /tmp/open62541 && \
+    cd /tmp/open62541 && \
+    mkdir build && cd build && \
+    cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr .. && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/open62541
+
+# 시스템 공유 라이브러리 소켓 링킹 동기화
+RUN ldconfig
 
 # 2. [FRS-12.1] CPU 백래시(Falling back to cpu)를 완벽히 차단하는 정식 CUDA 가속 휠 세트 이식
 # jax와 jaxlib 외에, JAX가 NVIDIA 드라이버 커널에 다이렉트로 결합할 수 있도록 관련 쿠다 플러그인 컴포넌트들을 함께 명시합니다.
