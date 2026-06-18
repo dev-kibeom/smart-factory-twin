@@ -25,7 +25,6 @@ services:
       - ./volumes/postgres_data:/var/lib/postgresql/data
     networks:
       - it_lan_net
-    # ports 섹션을 완전히 제거하고 expose만 선언하여 호스트(외부) 포트 오픈을 불허함
     expose:
       - "5432"
 
@@ -82,13 +81,13 @@ services:
       - ./volumes/mqtt_data:/mosquitto/data
       - ./volumes/mqtt_log:/mosquitto/log
     networks:
-      it_lan_net:      # IT 망은 도커가 알아서 유동 IP 부여
-      ot_field_net:    # [핵심 교정] ROS2와 통신할 OT 폐쇄망에는 고정 IP 주소를 강제 낙인
+      it_lan_net:      
+      ot_field_net:    
         ipv4_address: 172.20.0.10
     restart: always
 
   # ---------------------------------------------------------------------------
-  # [OT 평면] ROS2 Humble + Gazebo 시뮬레이션 컨테이너
+  # [OT 평면] ROS2 Humble + Gazebo 시뮬레이션 컨테이너 (X11 및 마운트 완정 복구)
   # ---------------------------------------------------------------------------
   ros2_simulation:
     build:
@@ -101,12 +100,19 @@ services:
     networks:
       - ot_field_net
     environment:
-      DISPLAY: ${DISPLAY}             
-      QT_X11_NO_MITSHM: "1"             
-      XLA_PYTHON_CLIENT_PREALLOCATE: "false"  
+      - DISPLAY=${DISPLAY}             
+      - QT_X11_NO_MITSHM=1             
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false  
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # 🔌 [핫픽스 수복] 컨테이너 내부 그래픽스 레이어가 호스트 권한 쿠키를 추종하도록 매핑
+      - XAUTHORITY=/tmp/.Xauthority
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  
-      - ./ros2_ws/src:/workspace/ros2_ws/src 
+      # 🔌 [핫픽스 수복] 호스트 마스터 X11 쿠키를 컨테이너 임시 디렉토리로 안전 패스스루
+      - ~/.Xauthority:/tmp/.Xauthority:ro
+      # 🔌 [정격 최적화] 내부 colcon 빌드 환경 유전 정합을 위해 워크스페이스 통짜 통합 볼륨 매핑
+      - ./ros2_ws:/workspace/ros2_ws
     runtime: nvidia
     deploy:
       resources:
@@ -120,10 +126,10 @@ services:
   # [OT 평면] 가상 Soft-PLC 환경 (OpenPLC)
   # ---------------------------------------------------------------------------
   openplc:
-    image: alpine:latest # 실제 구현 시 OpenPLC 패키징 반영
+    image: alpine:latest 
     container_name: sf_openplc_runtime
     ports:
-      - "502:502"   # Modbus TCP 포트 바인딩
-      - "4840:4840" # OPC UA 서버 포트 바인딩
+      - "502:502"   
+      - "4840:4840" 
     networks:
       - ot_field_net
