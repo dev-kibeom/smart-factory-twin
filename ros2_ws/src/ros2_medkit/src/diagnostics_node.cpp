@@ -18,7 +18,7 @@ public:
         scan_pub_ = this->create_publisher<sensor_msgs::msg::LaserScan>("/scan", 10);
         
         active_fault_code_ = 0; // 0: 정상 상태 (Operational)
-        RCLEXP_INFO(this->get_logger(), "SOVD 규격 모사 ros2_medkit 진단 코어 엔진 점화 완료.");
+        RCLCPP_INFO(this->get_logger(), "SOVD 규격 모사 ros2_medkit 진단 코어 엔진 점화 완료.");
     }
 
 private:
@@ -45,7 +45,7 @@ private:
         scan_pub_->publish(modified_scan);
     }
 
-    rclcpp::Service<factory_interfaces::srv::InjectFault::Client>::SharedPtr fault_srv_;
+    rclcpp::Service<factory_interfaces::srv::InjectFault>::SharedPtr fault_srv_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
     int32_t active_fault_code_;

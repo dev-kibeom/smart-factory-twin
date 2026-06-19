@@ -1,4 +1,4 @@
-# smart_factory_twin/ros2_ws/src/smart_factory_sim/launch/factory_sim.launch.py
+`# smart_factory_twin/ros2_ws/src/smart_factory_sim/launch/factory_sim.launch.py
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription

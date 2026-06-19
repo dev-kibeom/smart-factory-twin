@@ -4,21 +4,19 @@
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp" 
 #include "std_msgs/msg/string.hpp"
-#include <chrono> // [핫픽스 수복] 정격 C++ 표준 시간 헤더 인입
-#include <thread> // [핫픽스 수복] 정격 C++ 표준 스레드 헤더 인입
+#include <chrono>
+#include <thread>
 
 namespace SmartFactory {
 
-// ---------------------------------------------------------------------------
-// [BT Action Node] 1. VDA 5050 하향 명령 기반 실전 Gazebo cmd_vel 연격 주행 액션
-// ---------------------------------------------------------------------------
 class MoveToStation : public BT::StatefulActionNode {
 public:
-    MoveToStation(const std::string& name, const BT::NodeConfig& config)
-        : BT::StatefulActionNode(name, config) {
+    // 🔌 [정격 제어선 인입] 메인 스핀 노드의 SharedPtr를 직접 수전받아 결착
+    MoveToStation(const std::string& name, const BT::NodeConfig& config, rclcpp::Node::SharedPtr node)
+        : BT::StatefulActionNode(name, config), node_(node) {
         
-        auto node = rclcpp::Node::make_shared("bt_move_sub_node");
-        cmd_vel_pub_ = node->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        // 고립된 독자 노드 대신 메인 커널 노드 이름 공간에 cmd_vel 퍼블리셔를 하드 링크
+        cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
     }
 
     static BT::PortsList providedPorts() {
@@ -40,17 +38,18 @@ public:
         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
 
         auto twist_msg = geometry_msgs::msg::Twist();
-        if (elapsed < 4) {
-            twist_msg.linear.x = 0.4;
+        // ⏳ [테스트 타임 마진 확장] 대시보드 고장 주입을 클릭할 수 있도록 15초 주행 레이아웃 전개
+        if (elapsed < 10) {
+            twist_msg.linear.x = 0.4; // 10초간 전진 주행
             twist_msg.angular.z = 0.0;
-        } else if (elapsed >= 4 && elapsed < 6) {
-            twist_msg.linear.x = 0.1;
+        } else if (elapsed >= 10 && elapsed < 15) {
+            twist_msg.linear.x = 0.1; // 5초간 정밀 도킹 회전
             twist_msg.angular.z = 0.3;
         }
 
         cmd_vel_pub_->publish(twist_msg);
 
-        if (elapsed >= 6) {
+        if (elapsed >= 15) {
             auto stop_msg = geometry_msgs::msg::Twist();
             cmd_vel_pub_->publish(stop_msg);
 
@@ -62,20 +61,19 @@ public:
     }
 
     void onHalted() override {
+        // 고장 감지 루프 가 발동하여 팅겨나가는 즉시 Gazebo 물리 모터에 브레이크 인가 (Fail-Safe)
         auto emergency_stop = geometry_msgs::msg::Twist();
         cmd_vel_pub_->publish(emergency_stop);
-        std::cout << "🛑 [BT ENGINE] 주행 임무 강제 정지 (Halted 및 모터 서킷 차단).\n";
+        std::cout << "🛑 [BT ENGINE] 물리 안전 차단 발동 ➔ Gazebo 급제동 벡터 사출 완료.\n";
     }
 
 private:
     std::string target_station_;
     std::chrono::steady_clock::time_point start_time_;
+    rclcpp::Node::SharedPtr node_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 };
 
-// ---------------------------------------------------------------------------
-// [BT Action Node] 2. 정밀 도킹 및 화물 리프팅 액션 (동기 무결성 유지)
-// ---------------------------------------------------------------------------
 class DockAndLift : public BT::SyncActionNode {
 public:
     DockAndLift(const std::string& name, const BT::NodeConfig& config)
