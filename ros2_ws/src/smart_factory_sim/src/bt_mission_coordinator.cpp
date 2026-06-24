@@ -61,15 +61,23 @@ int main(int argc, char** argv) {
     RCLCPP_INFO(node->get_logger(), "  🧠 BehaviorTree.CPP v4 자율 결함 예외 차단 및 미션 제어 엔진 점화");
     RCLCPP_INFO(node->get_logger(), "=========================================================================");
 
-    // 🔌 [실전 센서 검사 채널] diagnostics_node 가 가공하여 뿜어내는 /scan 토픽 실시간 감시 폴링
+    // 단일 포인트 inf 검사에서 전체 스트림 inf 전수 조사로 로직 보강
     auto scan_sub = node->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", 10,
         [](const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-            if (!msg->ranges.empty() && msg->ranges[0] == std::numeric_limits<float>::infinity()) {
-                g_is_lidar_blind = true; // 센서 데이터 전체가 inf로 박살났음을 실시간 락인 감지
-            } else {
+            if (msg->ranges.empty()) {
                 g_is_lidar_blind = false;
+                return;
             }
+
+            bool all_points_are_inf = true;
+            for (const auto& range : msg->ranges) {
+                if (range != std::numeric_limits<float>::infinity()) {
+                    all_points_are_inf = false; // 단 하나라도 유효 거리가 찍힌다면 정상 평지로 판단
+                    break;
+                }
+            }
+            g_is_lidar_blind = all_points_are_inf;
         });
 
     std::thread ros_spin_thread([node]() {
@@ -83,9 +91,9 @@ int main(int argc, char** argv) {
             return std::make_unique<SmartFactory::MoveToStation>(name, config, node);
         });
         
-    factory.registerBuilder<SmartFactory::DockAndLift>("DockAndLift");
-    factory.registerFileType<IsLidarHealthy>("IsLidarHealthy");
-    factory.registerFileType<ReportFaultToMqtt>("ReportFaultToMqtt");
+    factory.registerNodeType<SmartFactory::DockAndLift>("DockAndLift");
+    factory.registerNodeType<IsLidarHealthy>("IsLidarHealthy");
+    factory.registerNodeType<ReportFaultToMqtt>("ReportFaultToMqtt");
 
     const std::string xml_text = R"(
     <root BTCPP_format="4">

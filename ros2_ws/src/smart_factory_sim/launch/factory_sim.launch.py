@@ -1,4 +1,4 @@
-`# smart_factory_twin/ros2_ws/src/smart_factory_sim/launch/factory_sim.launch.py
+# smart_factory_twin/ros2_ws/src/smart_factory_sim/launch/factory_sim.launch.py
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -13,10 +13,12 @@ def generate_launch_description():
     pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
 
     headless_arg = DeclareLaunchArgument(
-        "headless", default_value="True", description="Gazebo GUI 활성화 토글 플래그"
+        "headless", default_value="False", description="Gazebo GUI 활성화 토글 플래그"
     )
 
     headless_env = LaunchConfiguration("headless")
+
+    world_path = os.path.join(pkg_sim_share, "worlds", "factory_zone.world")
 
     # Gazebo 인프라 연격
     gazebo = IncludeLaunchDescription(
@@ -24,6 +26,7 @@ def generate_launch_description():
             os.path.join(pkg_gazebo_ros, "launch", "gazebo.launch.py")
         ),
         launch_arguments={
+            "world": world_path,
             "gui": PythonExpression(
                 [
                     "'true' if ",
@@ -35,11 +38,12 @@ def generate_launch_description():
         }.items(),
     )
 
+
     # 로봇 상태 퍼블리셔 등록
     urdf_file = os.path.join(pkg_sim_share, "urdf", "amr.urdf")
     with open(urdf_file, "r") as infp:
         robot_desc = infp.read()
-
+    
     robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",

@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(factory_interfaces REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
@@ -28,6 +29,7 @@ add_executable(bt_mission_coordinator src/bt_mission_coordinator.cpp)
 ament_target_dependencies(bt_mission_coordinator
   rclcpp
   std_msgs
+  sensor_msgs
   geometry_msgs
   factory_interfaces
   behaviortree_cpp
@@ -72,6 +74,7 @@ install(DIRECTORY
   launch
   map
   urdf
+  worlds
   DESTINATION share/${PROJECT_NAME}
 )
 

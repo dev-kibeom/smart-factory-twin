@@ -111,13 +111,10 @@ services:
       - XLA_PYTHON_CLIENT_PREALLOCATE=false  
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      # 🔌 [핫픽스 수복] 컨테이너 내부 그래픽스 레이어가 호스트 권한 쿠키를 추종하도록 매핑
-      - XAUTHORITY=/tmp/.Xauthority
+      - XAUTHORITY=/root/.Xauthority
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  
-      # 🔌 [핫픽스 수복] 호스트 마스터 X11 쿠키를 컨테이너 임시 디렉토리로 안전 패스스루
-      - ~/.Xauthority:/tmp/.Xauthority:ro
-      # 🔌 [정격 최적화] 내부 colcon 빌드 환경 유전 정합을 위해 워크스페이스 통짜 통합 볼륨 매핑
+      - ~/.Xauthority:/root/.Xauthority:ro
       - ./ros2_ws:/workspace/ros2_ws
     runtime: nvidia
     deploy:
